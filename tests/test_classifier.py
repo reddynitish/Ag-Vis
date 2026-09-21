@@ -37,3 +37,28 @@ def test_completion_is_the_only_event_that_reaches_one_hundred_percent():
     assert working.progress < 1
     assert complete.progress == 1
     assert complete.status == "finished"
+
+
+def test_approval_denial_becomes_blocked_state():
+    state = classify_event({"type": "approval_denied"}, VisualState.initial())
+    assert state.phase == "blocked"
+    assert state.status == "blocked"
+    assert state.message == "Blocked. Waiting for a safe next step."
+
+
+def test_unknown_event_can_use_valid_laya_fallback():
+    state = classify_event(
+        {"type": "mystery"},
+        VisualState.initial(),
+        ambiguity_classifier=lambda event: "researching",
+    )
+    assert state.phase == "researching"
+
+
+def test_invalid_laya_phase_falls_back_to_working():
+    state = classify_event(
+        {"type": "mystery"},
+        VisualState.initial(),
+        ambiguity_classifier=lambda event: "SECRET PHASE",
+    )
+    assert state.phase == "working"

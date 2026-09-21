@@ -26,7 +26,7 @@ def test_javascript_uses_sse_and_text_content():
 
 def test_styles_include_all_activity_phases():
     styles = static_text("styles.css")
-    for phase in ("planning", "researching", "building", "testing", "repairing", "finished"):
+    for phase in ("planning", "researching", "building", "testing", "repairing", "blocked", "finished"):
         assert f'[data-phase="{phase}"]' in styles
 
 

@@ -75,7 +75,12 @@ def _handler(store: StateStore) -> type[BaseHTTPRequestHandler]:
             revision = -1
             try:
                 while True:
-                    revision, state = store.wait_after(revision)
+                    next_revision, state = store.wait_after(revision)
+                    if next_revision == revision:
+                        self.wfile.write(b": keepalive\n\n")
+                        self.wfile.flush()
+                        continue
+                    revision = next_revision
                     payload = _json_bytes(public_dict(state))
                     self.wfile.write(b"data: " + payload + b"\n\n")
                     self.wfile.flush()

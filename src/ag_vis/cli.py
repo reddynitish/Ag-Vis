@@ -8,6 +8,8 @@ from typing import Sequence
 
 from .classifier import classify_event
 from .demo import start_demo
+from .laya_adapter import classify_with_laya
+from .model import VisualState
 from .server import StateStore, create_server
 from .watcher import discover_sessions, follow_jsonl
 
@@ -16,6 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Watch an AI agent build its work.")
     parser.add_argument("--demo", action="store_true", help="replay a built-in visual story")
     parser.add_argument("--no-open", action="store_true", help="do not open a browser window")
+    parser.add_argument("--laya", action="store_true", help="use the optional local Laya classifier")
     parser.add_argument("--session-root", type=Path, default=Path.home() / ".codex" / "sessions")
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--host", default="127.0.0.1")
@@ -23,19 +26,28 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _watch(store: StateStore, root: Path, workspace: Path) -> None:
+def _watch(store: StateStore, root: Path, workspace: Path, use_laya: bool = False) -> None:
     stop = threading.Event()
-    seen: Path | None = None
+    offsets: dict[Path, int] = {}
+    warned = False
     while not stop.is_set():
         sessions = discover_sessions(root, workspace)
         latest = sessions[-1] if sessions else None
-        if latest is None or latest == seen:
+        if latest is None:
+            if not warned:
+                store.publish(VisualState("waiting", "No Codex session found. Start Codex in this project.", 0.0, "waiting"))
+                warned = True
             stop.wait(0.75)
             continue
-        seen = latest
-        for event in follow_jsonl(latest, stop):
+        warned = False
+        from .watcher import read_appended_events
+
+        events, offsets[latest] = read_appended_events(latest, offsets.get(latest, 0))
+        for event in events:
             _, previous = store.snapshot()
-            store.publish(classify_event(event, previous))
+            fallback = classify_with_laya if use_laya else None
+            store.publish(classify_event(event, previous, fallback))
+        stop.wait(0.2)
 
 
 def run(args: argparse.Namespace) -> int:
@@ -47,7 +59,7 @@ def run(args: argparse.Namespace) -> int:
     else:
         threading.Thread(
             target=_watch,
-            args=(store, args.session_root, args.workspace.resolve()),
+            args=(store, args.session_root, args.workspace.resolve(), args.laya),
             daemon=True,
         ).start()
     if not args.no_open:

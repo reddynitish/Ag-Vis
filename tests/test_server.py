@@ -47,3 +47,9 @@ def test_unknown_routes_return_not_found(running_server):
     with pytest.raises(Exception) as error:
         urlopen(base + "/missing")
     assert getattr(error.value, "code", None) == 404
+
+
+def test_wait_after_timeout_does_not_change_revision():
+    store = StateStore()
+    revision, _ = store.wait_after(0, timeout=0.001)
+    assert revision == 0

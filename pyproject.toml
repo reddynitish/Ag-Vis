@@ -4,8 +4,10 @@ version = "0.1.0"
 description = "Animated visualization for AI agent activity"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "laya==0.3.4",
 ]
+
+[project.optional-dependencies]
+laya = ["laya==0.3.4"]
 
 [project.scripts]
 ag-vis = "ag_vis.cli:main"

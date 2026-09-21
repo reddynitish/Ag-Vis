@@ -30,13 +30,14 @@ uv run ag-vis --no-open
 uv run ag-vis --workspace /path/to/project
 uv run ag-vis --session-root /path/to/codex/sessions
 uv run ag-vis --port 9000
+uv sync --extra laya && uv run ag-vis --laya
 ```
 
 ## Privacy
 
 Ag-Vis binds to `127.0.0.1` by default. The watcher reduces Codex records to allowlisted event types and known tool names before classification. Browser responses never contain prompt text, file contents, raw command arguments, environment variables, or private reasoning.
 
-Laya 0.3.4 is included as an optional local decision layer for future ambiguous-event classification. The current deterministic rules remain the default and work without downloading model weights.
+Laya 0.3.4 is an optional local decision layer for ambiguous-event classification. Install it with `uv sync --extra laya`, then pass `--laya`. Deterministic rules remain the default and work without Laya or model weights.
 
 ## Current limits
 

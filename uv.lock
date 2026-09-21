@@ -6,7 +6,9 @@ requires-python = "==3.12.*"
 name = "ag-vis"
 version = "0.1.0"
 source = { editable = "." }
-dependencies = [
+
+[package.optional-dependencies]
+laya = [
     { name = "laya" },
 ]
 
@@ -16,7 +18,8 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "laya", specifier = "==0.3.4" }]
+requires-dist = [{ name = "laya", marker = "extra == 'laya'", specifier = "==0.3.4" }]
+provides-extras = ["laya"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.3" }]

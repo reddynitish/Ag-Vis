@@ -64,15 +64,12 @@ def discover_sessions(root: Path, workspace: str | Path) -> list[Path]:
     return sorted(matches, key=lambda path: path.stat().st_mtime)
 
 
-def follow_jsonl(path: Path, stop_event: threading.Event) -> Iterator[dict[str, str]]:
-    offset = 0
-    while True:
-        try:
-            size = path.stat().st_size
-        except OSError:
-            size = offset
+def read_appended_events(path: Path, offset: int) -> tuple[list[dict[str, str]], int]:
+    try:
+        size = path.stat().st_size
         if size < offset:
             offset = 0
+        events: list[dict[str, str]] = []
         with path.open("rb") as stream:
             stream.seek(offset)
             while True:
@@ -89,7 +86,17 @@ def follow_jsonl(path: Path, stop_event: threading.Event) -> Iterator[dict[str, 
                 if isinstance(record, dict):
                     public = sanitize_record(record)
                     if public is not None:
-                        yield public
+                        events.append(public)
+        return events, offset
+    except OSError:
+        return [], 0
+
+
+def follow_jsonl(path: Path, stop_event: threading.Event) -> Iterator[dict[str, str]]:
+    offset = 0
+    while True:
+        events, offset = read_appended_events(path, offset)
+        yield from events
         if stop_event.is_set():
             return
         time.sleep(0.15)

@@ -10,9 +10,10 @@ def test_parser_defaults_to_localhost():
 
 
 def test_parser_accepts_demo_without_opening_browser():
-    args = build_parser().parse_args(["--demo", "--no-open"])
+    args = build_parser().parse_args(["--demo", "--no-open", "--laya"])
     assert args.demo is True
     assert args.no_open is True
+    assert args.laya is True
 
 
 def test_demo_has_a_complete_visual_story():
