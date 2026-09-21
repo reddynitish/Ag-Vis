@@ -7,5 +7,15 @@ dependencies = [
     "laya==0.3.4",
 ]
 
-[tool.uv]
-package = false
+[project.scripts]
+ag-vis = "ag_vis.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.3"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ag_vis"]
