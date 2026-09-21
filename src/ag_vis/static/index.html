@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ag-Vis</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="popup" id="scene" data-phase="waiting">
+    <header class="chrome">
+      <span class="dot coral"></span><span class="dot blue"></span><span class="dot mint"></span>
+      <span class="brand">AG·VIS</span>
+      <span class="status" id="status">WAITING</span>
+    </header>
+
+    <section class="site" aria-label="Agent construction visualization">
+      <div class="skyline" aria-hidden="true"></div>
+      <div class="crane" aria-hidden="true"><i></i><b></b><span></span></div>
+
+      <div class="building" id="building" aria-hidden="true">
+        <div class="floor f6"><i></i><i></i><i></i></div>
+        <div class="floor f5"><i></i><i></i><i></i></div>
+        <div class="floor f4"><i></i><i></i><i></i></div>
+        <div class="floor f3"><i></i><i></i><i></i></div>
+        <div class="floor f2"><i></i><i></i><i></i></div>
+        <div class="floor f1"><i></i><i></i><i></i></div>
+        <div class="atrium"></div>
+      </div>
+
+      <div class="scaffold" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+      <div class="robot" aria-hidden="true">
+        <div class="antenna"></div>
+        <div class="head"><span class="eye left"></span><span class="eye right"></span></div>
+        <div class="body"></div><div class="arm"></div><div class="beam"></div>
+        <div class="leg one"></div><div class="leg two"></div>
+      </div>
+
+      <div class="dialogue" id="dialogue" aria-live="polite">Waiting for the agent to begin.</div>
+      <div class="ground" aria-hidden="true"></div>
+    </section>
+
+    <footer>
+      <label for="progress">Construction progress</label>
+      <progress id="progress" max="100" value="0">0%</progress>
+      <output id="percent">0%</output>
+    </footer>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
