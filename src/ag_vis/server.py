@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import threading
+from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -18,6 +19,8 @@ class StateStore:
         self._state = VisualState.initial()
         self._condition = threading.Condition()
         self._revision = 0
+        self._events: deque[tuple[int, VisualState]] = deque(maxlen=400)
+        self._clients = 0
 
     def snapshot(self) -> tuple[int, VisualState]:
         with self._condition:
@@ -27,7 +30,24 @@ class StateStore:
         with self._condition:
             self._state = state
             self._revision += 1
+            self._events.append((self._revision, state))
             self._condition.notify_all()
+
+    def events_after(self, revision: int) -> list[tuple[int, VisualState]]:
+        with self._condition:
+            return [(event_id, state) for event_id, state in self._events if event_id > revision]
+
+    def client_connected(self) -> None:
+        with self._condition:
+            self._clients += 1
+
+    def client_disconnected(self) -> None:
+        with self._condition:
+            self._clients = max(0, self._clients - 1)
+
+    def has_clients(self) -> bool:
+        with self._condition:
+            return self._clients > 0
 
     def wait_after(self, revision: int, timeout: float = 15) -> tuple[int, VisualState]:
         with self._condition:
@@ -72,7 +92,8 @@ def _handler(store: StateStore) -> type[BaseHTTPRequestHandler]:
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Connection", "keep-alive")
             self.end_headers()
-            revision = -1
+            revision = 0
+            store.client_connected()
             try:
                 while True:
                     next_revision, state = store.wait_after(revision)
@@ -80,12 +101,15 @@ def _handler(store: StateStore) -> type[BaseHTTPRequestHandler]:
                         self.wfile.write(b": keepalive\n\n")
                         self.wfile.flush()
                         continue
+                    for event_id, event_state in store.events_after(revision):
+                        payload = _json_bytes(public_dict(event_state))
+                        self.wfile.write(f"id: {event_id}\n".encode() + b"data: " + payload + b"\n\n")
                     revision = next_revision
-                    payload = _json_bytes(public_dict(state))
-                    self.wfile.write(b"data: " + payload + b"\n\n")
                     self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
                 return
+            finally:
+                store.client_disconnected()
 
         def _static(self, path: str) -> None:
             name = "index.html" if path == "/" else path.lstrip("/")

@@ -8,6 +8,7 @@ from ag_vis.watcher import (
     read_tail_events,
     read_complete_records,
     sanitize_record,
+    sanitize_records,
     TailCursor,
 )
 
@@ -32,6 +33,37 @@ def test_sanitize_unknown_tool_drops_its_name_and_arguments():
         {"type": "function_call", "name": "dangerous_tool", "arguments": "SECRET"}
     )
     assert result == {"type": "function_call"}
+
+
+def test_codex_exec_wrapper_yields_each_real_tool_without_arguments():
+    result = sanitize_records(
+        {
+            "type": "response_item",
+            "payload": {
+                "type": "custom_tool_call",
+                "name": "exec",
+                "input": "await tools.apply_patch(patch); await tools.exec_command({cmd: secret});",
+            },
+        }
+    )
+    assert result == [
+        {"type": "function_call", "name": "apply_patch"},
+        {"type": "function_call", "name": "exec_command"},
+    ]
+    assert "secret" not in repr(result)
+
+
+def test_codex_user_message_becomes_prompt_boundary_without_text():
+    result = sanitize_records(
+        {
+            "type": "event_msg",
+            "payload": {
+                "type": "item_completed",
+                "item": {"type": "UserMessage", "content": [{"type": "text", "text": "PRIVATE"}]},
+            },
+        }
+    )
+    assert result == [{"type": "user_prompt"}]
 
 
 def test_partial_jsonl_waits_for_newline(tmp_path):

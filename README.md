@@ -23,6 +23,8 @@ Run Ag-Vis from the project directory you are using with Codex:
 uv run ag-vis
 ```
 
+Leave it running, then submit your next Codex prompt. Ag-Vis starts at the live tail rather than replaying old history, and opens the visualization automatically when that prompt arrives. Each observable action is queued and animated long enough to see.
+
 Useful options:
 
 ```bash

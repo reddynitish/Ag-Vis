@@ -4,6 +4,7 @@ import json
 import threading
 import time
 from dataclasses import dataclass
+import re
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,7 @@ ALLOWED_TOOL_NAMES = {
     "view_image",
     "imagegen",
 }
+TOOL_CALL_RE = re.compile(r"tools\.(\w+)\(")
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,15 +26,38 @@ class TailCursor:
     identity: tuple[int, int] | None = None
 
 
-def sanitize_record(record: Mapping[str, Any]) -> dict[str, str] | None:
+def sanitize_records(record: Mapping[str, Any]) -> list[dict[str, str]]:
     payload = record.get("payload")
     source = payload if isinstance(payload, Mapping) else record
     event_type = str(source.get("type", record.get("type", "unknown")))
+    if record.get("type") == "event_msg" and event_type == "item_completed":
+        item = source.get("item")
+        if isinstance(item, Mapping) and item.get("type") == "UserMessage":
+            return [{"type": "user_prompt"}]
+    if record.get("type") == "event_msg" and event_type == "task_complete":
+        return [{"type": "turn_completed"}]
+    if record.get("type") == "event_msg" and event_type == "task_started":
+        return [{"type": "turn_started"}]
+    if event_type == "custom_tool_call" and source.get("name") == "exec":
+        raw = source.get("input", "")
+        names = TOOL_CALL_RE.findall(raw) if isinstance(raw, str) else []
+        return [
+            {"type": "function_call", "name": name}
+            for name in names
+            if name in ALLOWED_TOOL_NAMES
+        ] or [{"type": "function_call"}]
     result = {"type": event_type}
     name = source.get("name")
     if isinstance(name, str) and name in ALLOWED_TOOL_NAMES:
         result["name"] = name
-    return result
+    if event_type in {"reasoning", "message", "token_count", "item_completed", "custom_tool_call_output", "function_call_output"}:
+        return []
+    return [result]
+
+
+def sanitize_record(record: Mapping[str, Any]) -> dict[str, str] | None:
+    records = sanitize_records(record)
+    return records[0] if records else None
 
 
 def read_complete_records(path: Path, start: int = 0) -> Iterator[dict[str, Any]]:
@@ -99,9 +124,7 @@ def read_tail_events(path: Path, cursor: TailCursor) -> tuple[list[dict[str, str
                 except (json.JSONDecodeError, UnicodeDecodeError):
                     continue
                 if isinstance(record, dict):
-                    public = sanitize_record(record)
-                    if public is not None:
-                        events.append(public)
+                    events.extend(sanitize_records(record))
         return events, TailCursor(offset, identity)
     except OSError:
         return [], TailCursor()

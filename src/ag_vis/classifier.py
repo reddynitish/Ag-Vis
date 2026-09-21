@@ -27,6 +27,8 @@ def _rule(event: Mapping[str, Any]) -> tuple[str, str, float, str] | None:
         return "blocked", "Blocked. Waiting for a safe next step.", 0.5, "blocked"
     if event_type in {"turn_started", "task_started"}:
         return "planning", "Planning the structure.", 0.08, "working"
+    if event_type == "user_prompt":
+        return "planning", "I got your prompt. Mapping the build.", 0.02, "working"
     if event_type in {"approval_request", "user_input_request"}:
         return "waiting", "Waiting for your direction.", 0.5, "waiting"
     if event_type == "function_call":

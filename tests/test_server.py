@@ -53,3 +53,11 @@ def test_wait_after_timeout_does_not_change_revision():
     store = StateStore()
     revision, _ = store.wait_after(0, timeout=0.001)
     assert revision == 0
+
+
+def test_store_preserves_every_state_after_revision():
+    store = StateStore()
+    store.publish(VisualState("planning", "Planning the structure.", 0.08, "working"))
+    store.publish(VisualState("building", "Building the main structure.", 0.48, "working"))
+    events = store.events_after(0)
+    assert [state.phase for _, state in events] == ["planning", "building"]
