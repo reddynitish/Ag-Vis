@@ -1,5 +1,7 @@
 # Agent Visualization V1 Design
 
+Project and GitHub repository name: **Ag-Vis**.
+
 ## Goal
 
 Create a local companion that opens a browser popup while a Codex agent works. A small animated robot constructs a large multi-story building as the agent progresses. Short dialogue bubbles explain the current activity in plain language without exposing private reasoning or dumping raw logs.
