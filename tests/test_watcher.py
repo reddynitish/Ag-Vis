@@ -1,11 +1,14 @@
 import threading
+import os
 
 from ag_vis.watcher import (
     discover_sessions,
     follow_jsonl,
     read_appended_events,
+    read_tail_events,
     read_complete_records,
     sanitize_record,
+    TailCursor,
 )
 
 
@@ -72,3 +75,22 @@ def test_appended_reader_tracks_offset_and_handles_rotation(tmp_path):
 
 def test_appended_reader_tolerates_disappearing_file(tmp_path):
     assert read_appended_events(tmp_path / "gone.jsonl", 10) == ([], 0)
+
+
+def test_tail_cursor_resets_when_same_path_is_replaced_by_larger_file(tmp_path):
+    path = tmp_path / "session.jsonl"
+    path.write_text('{"type":"turn_started"}\n')
+    events, cursor = read_tail_events(path, TailCursor())
+    assert events == [{"type": "turn_started"}]
+
+    replacement = tmp_path / "replacement.jsonl"
+    replacement.write_text(
+        '{"type":"function_call","name":"apply_patch"}\n'
+        '{"type":"turn_completed"}\n'
+    )
+    os.replace(replacement, path)
+    events, _ = read_tail_events(path, cursor)
+    assert events == [
+        {"type": "function_call", "name": "apply_patch"},
+        {"type": "turn_completed"},
+    ]

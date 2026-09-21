@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+from dataclasses import dataclass
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,12 @@ ALLOWED_TOOL_NAMES = {
     "view_image",
     "imagegen",
 }
+
+
+@dataclass(frozen=True, slots=True)
+class TailCursor:
+    offset: int = 0
+    identity: tuple[int, int] | None = None
 
 
 def sanitize_record(record: Mapping[str, Any]) -> dict[str, str] | None:
@@ -65,8 +72,16 @@ def discover_sessions(root: Path, workspace: str | Path) -> list[Path]:
 
 
 def read_appended_events(path: Path, offset: int) -> tuple[list[dict[str, str]], int]:
+    events, cursor = read_tail_events(path, TailCursor(offset=offset))
+    return events, cursor.offset
+
+
+def read_tail_events(path: Path, cursor: TailCursor) -> tuple[list[dict[str, str]], TailCursor]:
     try:
-        size = path.stat().st_size
+        stat = path.stat()
+        identity = (stat.st_dev, stat.st_ino)
+        offset = cursor.offset if cursor.identity in {None, identity} else 0
+        size = stat.st_size
         if size < offset:
             offset = 0
         events: list[dict[str, str]] = []
@@ -87,9 +102,9 @@ def read_appended_events(path: Path, offset: int) -> tuple[list[dict[str, str]],
                     public = sanitize_record(record)
                     if public is not None:
                         events.append(public)
-        return events, offset
+        return events, TailCursor(offset, identity)
     except OSError:
-        return [], 0
+        return [], TailCursor()
 
 
 def follow_jsonl(path: Path, stop_event: threading.Event) -> Iterator[dict[str, str]]:

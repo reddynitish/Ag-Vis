@@ -11,7 +11,7 @@ from .demo import start_demo
 from .laya_adapter import classify_with_laya
 from .model import VisualState
 from .server import StateStore, create_server
-from .watcher import discover_sessions, follow_jsonl
+from .watcher import TailCursor, discover_sessions, read_tail_events
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -26,28 +26,36 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _poll_once(
+    store: StateStore,
+    root: Path,
+    workspace: Path,
+    cursors: dict[Path, TailCursor],
+    active: Path | None,
+    fallback,
+) -> Path | None:
+    sessions = discover_sessions(root, workspace)
+    latest = sessions[-1] if sessions else None
+    if latest is None:
+        store.publish(VisualState("waiting", "No Codex session found. Start Codex in this project.", 0.0, "waiting"))
+        return None
+    if latest != active:
+        store.publish(VisualState.initial())
+    events, cursors[latest] = read_tail_events(latest, cursors.get(latest, TailCursor()))
+    for event in events:
+        _, previous = store.snapshot()
+        store.publish(classify_event(event, previous, fallback))
+    return latest
+
+
 def _watch(store: StateStore, root: Path, workspace: Path, use_laya: bool = False) -> None:
     stop = threading.Event()
-    offsets: dict[Path, int] = {}
-    warned = False
+    cursors: dict[Path, TailCursor] = {}
+    active: Path | None = None
+    fallback = classify_with_laya if use_laya else None
     while not stop.is_set():
-        sessions = discover_sessions(root, workspace)
-        latest = sessions[-1] if sessions else None
-        if latest is None:
-            if not warned:
-                store.publish(VisualState("waiting", "No Codex session found. Start Codex in this project.", 0.0, "waiting"))
-                warned = True
-            stop.wait(0.75)
-            continue
-        warned = False
-        from .watcher import read_appended_events
-
-        events, offsets[latest] = read_appended_events(latest, offsets.get(latest, 0))
-        for event in events:
-            _, previous = store.snapshot()
-            fallback = classify_with_laya if use_laya else None
-            store.publish(classify_event(event, previous, fallback))
-        stop.wait(0.2)
+        active = _poll_once(store, root, workspace, cursors, active, fallback)
+        stop.wait(0.2 if active else 0.75)
 
 
 def run(args: argparse.Namespace) -> int:
