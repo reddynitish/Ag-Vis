@@ -85,3 +85,10 @@ def test_last_event_id_controls_resume_cursor():
     store = StateStore()
     store.publish(VisualState("planning", "Planning.", 0.08, "working"))
     assert store.initial_revision("1") == 1
+
+
+def test_future_last_event_id_is_clamped_after_server_restart():
+    store = StateStore()
+    assert store.initial_revision("100") == 0
+    store.publish(VisualState("planning", "Planning.", 0.08, "working"))
+    assert store.initial_revision("100") == 0

@@ -52,7 +52,10 @@ class StateStore:
     def initial_revision(self, last_event_id: str | None) -> int:
         if last_event_id is not None:
             try:
-                return max(0, int(last_event_id))
+                requested = max(0, int(last_event_id))
+                with self._condition:
+                    if requested <= self._revision:
+                        return requested
             except ValueError:
                 pass
         with self._condition:
