@@ -37,6 +37,27 @@ class StateStore:
         with self._condition:
             return [(event_id, state) for event_id, state in self._events if event_id > revision]
 
+    def events_between(self, after: int, through: int) -> list[tuple[int, VisualState]]:
+        with self._condition:
+            return [
+                (event_id, state)
+                for event_id, state in self._events
+                if after < event_id <= through
+            ]
+
+    def begin_turn(self) -> None:
+        with self._condition:
+            self._events.clear()
+
+    def initial_revision(self, last_event_id: str | None) -> int:
+        if last_event_id is not None:
+            try:
+                return max(0, int(last_event_id))
+            except ValueError:
+                pass
+        with self._condition:
+            return self._events[0][0] - 1 if self._events else self._revision
+
     def client_connected(self) -> None:
         with self._condition:
             self._clients += 1
@@ -92,7 +113,7 @@ def _handler(store: StateStore) -> type[BaseHTTPRequestHandler]:
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Connection", "keep-alive")
             self.end_headers()
-            revision = 0
+            revision = store.initial_revision(self.headers.get("Last-Event-ID"))
             store.client_connected()
             try:
                 while True:
@@ -101,7 +122,7 @@ def _handler(store: StateStore) -> type[BaseHTTPRequestHandler]:
                         self.wfile.write(b": keepalive\n\n")
                         self.wfile.flush()
                         continue
-                    for event_id, event_state in store.events_after(revision):
+                    for event_id, event_state in store.events_between(revision, next_revision):
                         payload = _json_bytes(public_dict(event_state))
                         self.wfile.write(f"id: {event_id}\n".encode() + b"data: " + payload + b"\n\n")
                     revision = next_revision

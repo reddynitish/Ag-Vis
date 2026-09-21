@@ -48,7 +48,10 @@ def _poll_once(
     events, cursors[latest] = read_tail_events(latest, cursors.get(latest, TailCursor()))
     for event in events:
         if event.get("type") == "user_prompt" and on_prompt is not None:
+            store.begin_turn()
             on_prompt()
+        elif event.get("type") == "user_prompt":
+            store.begin_turn()
         _, previous = store.snapshot()
         store.publish(classify_event(event, previous, fallback))
     return latest

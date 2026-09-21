@@ -61,3 +61,27 @@ def test_store_preserves_every_state_after_revision():
     store.publish(VisualState("building", "Building the main structure.", 0.48, "working"))
     events = store.events_after(0)
     assert [state.phase for _, state in events] == ["planning", "building"]
+
+
+def test_turn_boundary_drops_previous_history_without_resetting_revision():
+    store = StateStore()
+    store.publish(VisualState("finished", "Finished building.", 1.0, "finished"))
+    previous_revision = store.snapshot()[0]
+    store.begin_turn()
+    store.publish(VisualState("planning", "I got your prompt. Mapping the build.", 0.02, "working"))
+    assert store.initial_revision(None) == previous_revision
+    assert [state.phase for _, state in store.events_after(previous_revision)] == ["planning"]
+
+
+def test_event_batch_is_bounded_by_captured_revision():
+    store = StateStore()
+    store.publish(VisualState("planning", "Planning.", 0.08, "working"))
+    captured = store.snapshot()[0]
+    store.publish(VisualState("building", "Building.", 0.48, "working"))
+    assert [state.phase for _, state in store.events_between(0, captured)] == ["planning"]
+
+
+def test_last_event_id_controls_resume_cursor():
+    store = StateStore()
+    store.publish(VisualState("planning", "Planning.", 0.08, "working"))
+    assert store.initial_revision("1") == 1

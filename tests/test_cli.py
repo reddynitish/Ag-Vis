@@ -76,6 +76,8 @@ def test_prompt_event_invokes_popup_callback(tmp_path):
         f'{{"cwd":"{workspace}","type":"event_msg","payload":{{"type":"item_completed","item":{{"type":"UserMessage"}}}}}}\n'
     )
     calls = []
-    active = _poll_once(StateStore(), root, workspace, {}, None, None, lambda: calls.append("open"))
+    store = StateStore()
+    active = _poll_once(store, root, workspace, {}, None, None, lambda: calls.append("open"))
     assert active == session
     assert calls == ["open"]
+    assert store.snapshot()[1].phase == "planning"
